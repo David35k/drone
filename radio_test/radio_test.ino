@@ -1,43 +1,62 @@
 #include <ESP32Servo.h>
 
-Servo ESC;
+Servo leftMotor;
+Servo rightMotor;
 
-int receivePin1 = 16;
-int receivePin2 = 17;
-int receivePin3 = 18;
-int receivePin4 = 19;
-unsigned long pulseDuration1;
-unsigned long pulseDuration2;
-unsigned long pulseDuration3;
-unsigned long pulseDuration4;
+int ReceiverPin1 = 16;
+int ReceiverPin2 = 17;
+int ReceiverPin3 = 18;
+int ReceiverPin4 = 19;
+unsigned long ReceiverValues[] = { 0, 0, 0, 0 };
+
+float InputThrottle;
+
+void read_receiver(void) {
+  // get pulse durations
+  // returns in microseconds
+  ReceiverValues[0] = pulseIn(ReceiverPin1, HIGH);
+  ReceiverValues[1] = pulseIn(ReceiverPin2, HIGH);
+  ReceiverValues[2] = pulseIn(ReceiverPin3, HIGH);
+  ReceiverValues[3] = pulseIn(ReceiverPin4, HIGH);
+}
 
 void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-  pinMode(receivePin1, INPUT);
-  pinMode(receivePin2, INPUT);
-  pinMode(receivePin3, INPUT);
-  pinMode(receivePin4, INPUT);
+  Serial.begin(57600);
+  
+  // set receiver pins to input
+  pinMode(ReceiverPin1, INPUT);
+  pinMode(ReceiverPin2, INPUT);
+  pinMode(ReceiverPin3, INPUT);
+  pinMode(ReceiverPin4, INPUT);
 
-  // attach ESC to pin 21
-  ESC.attach(21, 1000, 2000);
+  // attach ESCs
+  leftMotor.attach(32, 1000, 2000);
+  rightMotor.attach(4, 1000, 2000);
+
+  // avoid uncontrolled motor start
+  while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
+    read_receiver();
+    delay(4);
+  }
 }
 
 void loop() {
-  // get pulse durations
-  pulseDuration1 = pulseIn(receivePin1, HIGH);  // returns in microseconds
-  pulseDuration2 = pulseIn(receivePin2, HIGH);
-  pulseDuration3 = pulseIn(receivePin3, HIGH);
-  pulseDuration4 = pulseIn(receivePin4, HIGH);
+  // get signals from receiver
+  read_receiver();
+
+  InputThrottle = ReceiverValues[2];
 
   // write pulse duration to ESC
-  ESC.write(pulseDuration3);
+  leftMotor.write(InputThrottle);
+  rightMotor.write(InputThrottle);
 
-  Serial.print(pulseDuration1);
+  Serial.print(ReceiverValues[0]);
   Serial.print(" ");
-  Serial.print(pulseDuration2);
+  Serial.print(ReceiverValues[1]);
   Serial.print(" ");
-  Serial.print(pulseDuration3);
+  Serial.print(ReceiverValues[2]);
   Serial.print(" ");
-  Serial.println(pulseDuration4);
+  Serial.print(ReceiverValues[3]);
+  Serial.print(" ");
+  Serial.println(InputThrottle);
 }

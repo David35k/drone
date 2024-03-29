@@ -1,123 +1,211 @@
+// this simple balance test only uses two motors and the pitch angle
+// they are mounted on a seesaw-like stand
+
+#include "Wire.h"
+
+float RateRoll, RatePitch, RateYaw;
+
+// calibration variables
+float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
+int RateCalibrationNumber;
+
 #include <ESP32Servo.h>
-#include "MPU9250.h"
-#include "math.h"
 
-//accel stuff
-float accY, accZ;
-float accAngle;
+int ReceiverPin1 = 16;
+int ReceiverPin2 = 17;
+int ReceiverPin3 = 18;
+int ReceiverPin4 = 19;
+unsigned long ReceiverValues[] = { 0, 0, 0, 0 };
 
-//gyro stuff
-float gyroX;
-float gyroAngle = 0;
-unsigned long currTime, prevTime = 0, loopTime;
+Servo Motor1, Motor2;
 
-float prevAngle = 0, currentAngle;
+float MotorInput1, MotorInput2;
 
-// PID shinenigans
-float targetAngle = 7;
-float errorSum = 0, prevError, prevIntegral;
-float kP = 2;  // proportional
-float kI = 0;   // integral
-float kD = 0;   // derivative
+// define loop time
+uint32_t LoopTimer;
 
-MPU9250 IMU(Wire, 0x68);
-int status;
+// all variables needed for PID - ONLY PITCH
+float DesiredRatePitch;
+float ErrorRatePitch;
+float InputThrottle, InputPitch;
+float PrevErrorRatePitch;
+float PrevItermRatePitch;
+float PIDReturn[] = { 0, 0, 0 };
 
-// initiate the two motors
-Servo leftMotor;
-Servo rightMotor;
+// PID parameters
+float PRatePitch = 0.6;
+float IRatePitch = 3.5;
+float DRatePitch = 0.03;
 
-// receiver stuff
-int receivePin1 = 16;
-int receivePin2 = 17;
-int receivePin3 = 18;
-int receivePin4 = 19;
-unsigned long pulseDuration1;
-unsigned long pulseDuration2;
-unsigned long pulseDuration3;
-unsigned long pulseDuration4;
+// gyro measurements function
+void gyro_signals(void) {
+  // switch on low pass filter
+  Wire.beginTransmission(0x68);
+  Wire.write(0x1A);
+  Wire.write(0x05);
+  Wire.endTransmission();
+
+  // set sensitivity scale factor
+  Wire.beginTransmission(0x68);
+  Wire.write(0x1B);
+  Wire.write(0x8);
+  Wire.endTransmission();
+
+  // access registers storing measurements
+  Wire.beginTransmission(0x68);
+  Wire.write(0x43);
+  Wire.endTransmission();
+  Wire.requestFrom(0x68, 6);
+
+  // read gyro measurements
+  int16_t GyroX = Wire.read() << 8 | Wire.read();
+  int16_t GyroY = Wire.read() << 8 | Wire.read();
+  int16_t GyroZ = Wire.read() << 8 | Wire.read();
+
+  // get in degrees per second
+  RateRoll = (float)GyroX / 65.5;
+  RatePitch = (float)GyroY / 65.5;
+  RateYaw = (float)GyroZ / 65.5;
+}
+
+// PID function
+void pid_equation(float Error, float P, float I, float D, float PrevError, float PrevIterm) {
+  // PID calculation
+  float Pterm = P * Error;
+  float Iterm = PrevIterm = I * (Error + PrevError) * 0.004 / 2;
+  if (Iterm > 400) Iterm = 400;
+  else if (Iterm < -400) Iterm = -400;
+  float Dterm = D * (Error - PrevError) / 0.004;
+  float PIDOutput = Pterm + Iterm + Dterm;
+  if (PIDOutput > 400) PIDOutput = 400;
+  else if (PIDOutput < -400) PIDOutput = -400;
+
+  // return output from PID function
+  PIDReturn[0] = PIDOutput;
+  PIDReturn[1] = Error;
+  PIDReturn[2] = Iterm;
+}
+
+void reset_pid(void) {
+  PrevErrorRatePitch = 0;
+  PrevItermRatePitch = 0;
+}
+
+// reads pulse widths from receiver in microseconds (1000-2000)
+void read_receiver(void) {
+  ReceiverValues[0] = pulseIn(ReceiverPin1, HIGH);
+  ReceiverValues[1] = pulseIn(ReceiverPin2, HIGH);
+  ReceiverValues[2] = pulseIn(ReceiverPin3, HIGH);
+  ReceiverValues[3] = pulseIn(ReceiverPin4, HIGH);
+}
 
 void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(115200);
 
-  // start communication with IMU
-  status = IMU.begin();
-  if (status < 0) {
-    Serial.println("IMU initialization unsuccessful");
-    Serial.println("Check IMU wiring or try cycling power");
-    Serial.print("Status: ");
-    Serial.println(status);
-    while (1) {}
+  // should have some LED to indicate status
+
+  // set clock speed of I2C to 400kHz
+  Wire.setClock(400000);
+  Wire.begin();
+  delay(250);
+
+  // start gyro in power mode
+  Wire.beginTransmission(0x68);
+  Wire.write(0x6B);
+  Wire.write(0x00);
+
+  Wire.endTransmission();
+
+  // take 2000 measurements and get calibration values
+  // this will take 2 seconds, don't move quad while calibrating
+  for (RateCalibrationNumber = 0; RateCalibrationNumber < 2000; RateCalibrationNumber++) {
+    gyro_signals();
+    RateCalibrationRoll += RateRoll;
+    RateCalibrationPitch += RatePitch;
+    RateCalibrationYaw += RateYaw;
+    delay(1);
   }
 
-  pinMode(receivePin1, INPUT);
-  pinMode(receivePin2, INPUT);
-  pinMode(receivePin3, INPUT);
-  pinMode(receivePin4, INPUT);
+  // calculate calibration values
+  RateCalibrationRoll /= 2000;
+  RateCalibrationPitch /= 2000;
+  RateCalibrationYaw /= 2000;
 
-  // attach left motor to pin 32
-  leftMotor.attach(32, 1000, 2000);
-  // attach right motor to pin 4
-  rightMotor.attach(4, 1000, 2000);
+  // set receiver pins to input
+  pinMode(ReceiverPin1, INPUT);
+  pinMode(ReceiverPin2, INPUT);
+  pinMode(ReceiverPin3, INPUT);
+  pinMode(ReceiverPin4, INPUT);
+
+  // attach ESCs
+  Motor1.attach(4, 1000, 2000);
+  Motor2.attach(32, 1000, 2000);
+
+  // avoid uncontrolled motor start
+  while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
+    read_receiver();
+    delay(4);
+  }
+
+  // finished setup hooray
+
+  LoopTimer = micros();
 }
 
 void loop() {
-  // read the IMU
-  IMU.readSensor();
+  // get gyro readings
+  gyro_signals();
 
-  // get angle using accel
-   accY = IMU.getAccelY_mss();  // ms^-2
-   accZ = IMU.getAccelZ_mss();
+  // use calibration values to correct measurements
+  RateRoll -= RateCalibrationRoll;
+  RatePitch -= RateCalibrationPitch;
+  RateYaw -= RateCalibrationYaw;
 
-   accAngle = atan2(accY, accZ) * RAD_TO_DEG + 180;
+  // get receiver readings
+  read_receiver();
 
-  // left side
-  if (accAngle > 180) {
-    accAngle -= 360;
+  // calculate desired rates based on input
+  // rate range: -75 to 75 deg/s
+  DesiredRatePitch = 0.15 * (ReceiverValues[1] - 1500);
+  InputThrottle = ReceiverValues[2];
+
+  // calculate the errors that will be corrected by PID
+  ErrorRatePitch = DesiredRatePitch - RateRoll;
+
+  // execute PID calculations
+  pid_equation(ErrorRatePitch, PRatePitch, IRatePitch, DRatePitch, PrevErrorRatePitch, PrevItermRatePitch);
+  InputPitch = PIDReturn[0];
+  PrevErrorRatePitch = PIDReturn[1];
+  PrevItermRatePitch = PIDReturn[2];
+
+  // limit throttle output to leave room for PID corrections
+  if(InputThrottle > 1800) InputThrottle = 1800;
+
+  // use quadcopter dynamics equation to determine motor speeds
+  MotorInput1 = InputThrottle - InputPitch;
+  MotorInput2 = InputThrottle + InputPitch;
+
+  // make sure they dont exceed 2000 microseconds
+  if(MotorInput1 > 2000) MotorInput1 = 1999;
+  if(MotorInput2 > 2000) MotorInput2 = 1999;
+
+  // keep motors running and minimum 18%
+  int ThrottleIdle = 1180;
+  if(MotorInput1 < ThrottleIdle) MotorInput1 = ThrottleIdle;
+  if(MotorInput2 < ThrottleIdle) MotorInput2 = ThrottleIdle;
+
+  // make sure you can turn the motors off lol
+  int ThrottleCutoff = 1000;
+  if(ReceiverValues[2] < 1050) {
+    MotorInput1 = ThrottleCutoff;
+    MotorInput2 = ThrottleCutoff;
+    reset_pid();
   }
 
-  // get angle using gyro
-   gyroX = IMU.getGyroX_rads() * RAD_TO_DEG;  //deg^-1
-  // float gyroRate = map(gyroX, -32768, 32767, -250, 250);
-   gyroAngle = prevAngle + gyroX * 4 / 1000;
+  // send signal to motors
+  Motor1.write(MotorInput1);
+  Motor2.write(MotorInput2);
 
-  // complementary filter
-  float currentAngle = 0.9934 * gyroAngle + 0.0066 * accAngle;
-
-  // PID
-  float error = currentAngle - targetAngle;
-  errorSum = errorSum + error;
-  errorSum = constrain(errorSum, -300, 300);
-  float i = errorSum * 4;
-  float d = (currentAngle - prevAngle) / 4;
-  float output = kP * error + kI * i + kD * d;
-
-  prevError = error;
-  prevIntegral = i;
-  prevAngle = currentAngle;
-
-  // get pulse durations from reciever
-  pulseDuration1 = pulseIn(receivePin1, HIGH);  // returns in microseconds
-  pulseDuration2 = pulseIn(receivePin2, HIGH);
-  pulseDuration3 = pulseIn(receivePin3, HIGH);
-  pulseDuration4 = pulseIn(receivePin4, HIGH);
-
-  // write combined pulse duration to ESCs
-  leftMotor.write(pulseDuration3);
-  rightMotor.write(pulseDuration3);
-
-  Serial.print(currentAngle);
-  Serial.print(" ");
-  Serial.print(output);
-  Serial.print(" ");
-  // Serial.print(pulseDuration1);
-  // Serial.print(" ");
-  // Serial.print(pulseDuration2);
-  // Serial.print(" ");
-  Serial.println(pulseDuration3);
-  // Serial.print(" ");
-  // Serial.println(pulseDuration4);
-
-  delay(4);
+  // finish 250Hz control loop
+  while(micros() - LoopTimer < 4000);
+  LoopTimer = micros();
 }
