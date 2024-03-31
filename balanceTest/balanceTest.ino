@@ -15,7 +15,7 @@ int ReceiverPin1 = 16;
 int ReceiverPin2 = 17;
 int ReceiverPin3 = 18;
 int ReceiverPin4 = 19;
-unsigned long ReceiverValues[] = { 0, 0, 0, 0 };
+float ReceiverValues[] = { 0, 0, 0, 0 };
 
 Servo Motor1, Motor2;
 
@@ -35,7 +35,7 @@ float PIDReturn[] = { 0, 0, 0 };
 // PID parameters
 float PRatePitch = 0.6;
 float IRatePitch = 3.5;
-float DRatePitch = 0.03;
+float DRatePitch = 0.01;
 
 // gyro measurements function
 void gyro_signals(void) {
@@ -72,7 +72,7 @@ void gyro_signals(void) {
 void pid_equation(float Error, float P, float I, float D, float PrevError, float PrevIterm) {
   // PID calculation
   float Pterm = P * Error;
-  float Iterm = PrevIterm = I * (Error + PrevError) * 0.004 / 2;
+  float Iterm = PrevIterm + I * (Error + PrevError) * 0.004 / 2;
   if (Iterm > 400) Iterm = 400;
   else if (Iterm < -400) Iterm = -400;
   float Dterm = D * (Error - PrevError) / 0.004;
@@ -102,6 +102,8 @@ void read_receiver(void) {
 void setup() {
 
   // should have some LED to indicate status
+
+  Serial.begin(57600);
 
   // set clock speed of I2C to 400kHz
   Wire.setClock(400000);
@@ -188,11 +190,6 @@ void loop() {
   if(MotorInput1 > 2000) MotorInput1 = 1999;
   if(MotorInput2 > 2000) MotorInput2 = 1999;
 
-  // keep motors running and minimum 18%
-  int ThrottleIdle = 1180;
-  if(MotorInput1 < ThrottleIdle) MotorInput1 = ThrottleIdle;
-  if(MotorInput2 < ThrottleIdle) MotorInput2 = ThrottleIdle;
-
   // make sure you can turn the motors off lol
   int ThrottleCutoff = 1000;
   if(ReceiverValues[2] < 1050) {
@@ -200,6 +197,14 @@ void loop() {
     MotorInput2 = ThrottleCutoff;
     reset_pid();
   }
+
+  Serial.print(RatePitch);
+  Serial.print(" ");
+  Serial.print(DesiredRatePitch);
+  Serial.print(" ");
+  Serial.print(MotorInput1);
+  Serial.print(" ");
+  Serial.println(MotorInput2);
 
   // send signal to motors
   Motor1.write(MotorInput1);
