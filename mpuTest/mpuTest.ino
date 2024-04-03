@@ -21,7 +21,8 @@ void gyro_signals(void) {
   // configure accel
   Wire.beginTransmission(0x68);
   Wire.write(0x1C);
-  
+  Wire.write(0x10);
+  Wire.endTransmission();
 
   // configure gyro
   Wire.beginTransmission(0x68);
@@ -29,13 +30,34 @@ void gyro_signals(void) {
   Wire.write(0x8);
   Wire.endTransmission();
 
-  // access registers storing measurements
+  // access registers storing accel values
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B);
+  Wire.endTransmission();
+  Wire.requestFrom(0x68, 6);
+
+  // store accel measurements
+  int16_t AccXLSB = Wire.read() << 8 | Wire.read();
+  int16_t AccYLSB = Wire.read() << 8 | Wire.read();
+  int16_t AccZLSB = Wire.read() << 8 | Wire.read();
+
+  // convert to physical values
+  // NOTE: YOURE GONNA HAVE TO CALIBRATE BEFORE PUTTING ON DRONE!!!
+  AccX = (float)AccXLSB / 4096;
+  AccY = (float)AccYLSB / 4096;
+  AccZ = (float)AccZLSB / 4096;
+
+  // epic math shinenigans
+  AngleRoll = atan(AccY / sqrt(AccX * AccX + AccZ * AccZ)) * 1 / (PI / 180);
+  AnglePitch = -atan(AccX / sqrt(AccY * AccY + AccZ * AccZ)) * 1 / (PI / 180);
+
+  // access registers storing gyro values
   Wire.beginTransmission(0x68);
   Wire.write(0x43);
   Wire.endTransmission();
   Wire.requestFrom(0x68, 6);
 
-  // read gyro measurements
+  // store gyro measurements
   int16_t GyroX = Wire.read() << 8 | Wire.read();
   int16_t GyroY = Wire.read() << 8 | Wire.read();
   int16_t GyroZ = Wire.read() << 8 | Wire.read();
@@ -48,7 +70,7 @@ void gyro_signals(void) {
 
 void setup() {
   Serial.begin(57600);
-  
+
   // set clock speed of I2C to 400kHz
   Wire.setClock(400000);
   Wire.begin();
@@ -63,7 +85,7 @@ void setup() {
 
   // take 2000 measurements and get calibration values
   // this will take 2 seconds, don't move quad while calibrating
-  for(RateCalibrationNumber = 0; RateCalibrationNumber < 2000; RateCalibrationNumber++) {
+  for (RateCalibrationNumber = 0; RateCalibrationNumber < 2000; RateCalibrationNumber++) {
     gyro_signals();
     RateCalibrationRoll += RateRoll;
     RateCalibrationPitch += RatePitch;
@@ -75,7 +97,6 @@ void setup() {
   RateCalibrationRoll /= 2000;
   RateCalibrationPitch /= 2000;
   RateCalibrationYaw /= 2000;
-
 }
 
 void loop() {
@@ -88,12 +109,16 @@ void loop() {
 
   // print values
   Serial.print("everything in deg/s ");
-  Serial.print("roll rate: ");
-  Serial.print(RateRoll);
-  Serial.print(" pitch rate: ");
-  Serial.print(RatePitch);
-  Serial.print(" yaw rate: ");
-  Serial.println(RateYaw);
+  Serial.print("acc x: ");
+  Serial.print(AccX);
+  Serial.print(" acc y: ");
+  Serial.print(AccY);
+  Serial.print(" acc z: ");
+  Serial.print(AccZ);
+  Serial.print(" angle roll: ");
+  Serial.print(AngleRoll);
+  Serial.print(" angle pitch: ");
+  Serial.println(AnglePitch);
 
   delay(50);
 }
