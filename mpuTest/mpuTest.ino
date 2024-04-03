@@ -1,6 +1,11 @@
 #include "Wire.h"
 
+// rate variables
 float RateRoll, RatePitch, RateYaw;
+
+// accel variables
+float AccX, AccY, AccZ;
+float AngleRoll, AnglePitch;
 
 // calibration variables
 float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
@@ -13,7 +18,12 @@ void gyro_signals(void) {
   Wire.write(0x05);
   Wire.endTransmission();
 
-  // set sensitivity scale factor
+  // configure accel
+  Wire.beginTransmission(0x68);
+  Wire.write(0x1C);
+  
+
+  // configure gyro
   Wire.beginTransmission(0x68);
   Wire.write(0x1B);
   Wire.write(0x8);
