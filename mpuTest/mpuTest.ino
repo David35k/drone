@@ -1,5 +1,9 @@
 #include "Wire.h"
 
+// dude i do not understand how the kalman filter works 💀
+
+float LoopTimer;
+
 // rate variables
 float RateRoll, RatePitch, RateYaw;
 
@@ -10,6 +14,25 @@ float AngleRoll, AnglePitch;
 // calibration variables
 float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
 int RateCalibrationNumber;
+
+// kalman filter shinenigans
+float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 1;
+float KalmanAnglePitch = 0, KalmanUncertaintyAnglePitch = 1;
+
+// output of filter {angle prediction, uncertainty of the prediction}
+// 1D means 1 dimensional
+float Kalman1DOutput[] = { 0, 0 };
+
+// wtf is going on bro 😭
+void kalman_1d(float KalmanState, float KalmanUncertainty, float KalmanInput, float KalmanMeasurement) {
+  KalmanState = KalmanState + 0.004 * KalmanInput;
+  KalmanUncertainty = KalmanUncertainty + 0.004 * 0.004 * 4 * 4;
+  float KalmanGain = KalmanUncertainty * 1 / (1 * KalmanUncertainty + 3 * 3);
+  KalmanState = KalmanState + KalmanGain * (KalmanMeasurement - KalmanState);
+  KalmanUncertainty = (1 - KalmanGain) * KalmanUncertainty;
+  Kalman1DOutput[0] = KalmanState;
+  Kalman1DOutput[1] = KalmanUncertainty;
+}
 
 void gyro_signals(void) {
   // switch on low pass filter
@@ -42,10 +65,9 @@ void gyro_signals(void) {
   int16_t AccZLSB = Wire.read() << 8 | Wire.read();
 
   // convert to physical values
-  // NOTE: YOURE GONNA HAVE TO CALIBRATE BEFORE PUTTING ON DRONE!!!
-  AccX = (float)AccXLSB / 4096;
-  AccY = (float)AccYLSB / 4096;
-  AccZ = (float)AccZLSB / 4096;
+  AccX = (float)AccXLSB / 4096 - 0.01;
+  AccY = (float)AccYLSB / 4096 + 0.01;
+  AccZ = (float)AccZLSB / 4096 + 0.01;
 
   // epic math shinenigans
   AngleRoll = atan(AccY / sqrt(AccX * AccX + AccZ * AccZ)) * 1 / (PI / 180);
@@ -66,6 +88,8 @@ void gyro_signals(void) {
   RateRoll = (float)GyroX / 65.5;
   RatePitch = (float)GyroY / 65.5;
   RateYaw = (float)GyroZ / 65.5;
+
+  LoopTimer = micros();
 }
 
 void setup() {
@@ -107,18 +131,35 @@ void loop() {
   RatePitch -= RateCalibrationPitch;
   RateYaw -= RateCalibrationYaw;
 
-  // print values
-  Serial.print("everything in deg/s ");
-  Serial.print("acc x: ");
-  Serial.print(AccX);
-  Serial.print(" acc y: ");
-  Serial.print(AccY);
-  Serial.print(" acc z: ");
-  Serial.print(AccZ);
-  Serial.print(" angle roll: ");
-  Serial.print(AngleRoll);
-  Serial.print(" angle pitch: ");
-  Serial.println(AnglePitch);
+  // kalman for roll
+  kalman_1d(KalmanAngleRoll, KalmanUncertaintyAngleRoll, RateRoll, AngleRoll);
+  KalmanAngleRoll = Kalman1DOutput[0];
+  KalmanUncertaintyAngleRoll = Kalman1DOutput[1];
+  // for pitch
+  kalman_1d(KalmanAnglePitch, KalmanUncertaintyAnglePitch, RatePitch, AnglePitch);
+  KalmanAnglePitch = Kalman1DOutput[0];
+  KalmanUncertaintyAnglePitch = Kalman1DOutput[1];
 
-  delay(50);
+  // print values
+  Serial.print("rateRoll:");
+  Serial.print(RateRoll);
+  Serial.print(" ratePitch:");
+  Serial.print(RatePitch);
+  Serial.print("accX:");
+  Serial.print(AccX);
+  Serial.print(" accY:");
+  Serial.print(AccY);
+  Serial.print(" accZ:");
+  Serial.print(AccZ);
+  Serial.print(" angleRoll:");
+  Serial.print(AngleRoll);
+  Serial.print(" anglePitch:");
+  Serial.print(AnglePitch);
+  Serial.print("kalmaRoll:");
+  Serial.print(KalmanAngleRoll);
+  Serial.print(" kalmaPitch:");
+  Serial.println(KalmanAnglePitch);
+
+  while (micros() - LoopTimer < 4000);
+  LoopTimer = micros();
 }
