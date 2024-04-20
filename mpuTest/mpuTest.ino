@@ -6,33 +6,18 @@ float LoopTimer;
 
 // rate variables
 float RateRoll, RatePitch, RateYaw;
+float RollAngleGyro, PitchAngleGyro;
+float PrevAngleRoll, PrevAnglePitch;
 
 // accel variables
 float AccX, AccY, AccZ;
+float AngleRollAcc, AnglePitchAcc;
+
 float AngleRoll, AnglePitch;
 
 // calibration variables
 float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
 int RateCalibrationNumber;
-
-// kalman filter shinenigans
-float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 1;
-float KalmanAnglePitch = 0, KalmanUncertaintyAnglePitch = 1;
-
-// output of filter {angle prediction, uncertainty of the prediction}
-// 1D means 1 dimensional
-float Kalman1DOutput[] = { 0, 0 };
-
-// wtf is going on bro 😭
-void kalman_1d(float KalmanState, float KalmanUncertainty, float KalmanInput, float KalmanMeasurement) {
-  KalmanState = KalmanState + 0.004 * KalmanInput;
-  KalmanUncertainty = KalmanUncertainty + 0.004 * 0.004 * 4 * 4;
-  float KalmanGain = KalmanUncertainty * 1 / (1 * KalmanUncertainty + 3 * 3);
-  KalmanState = KalmanState + KalmanGain * (KalmanMeasurement - KalmanState);
-  KalmanUncertainty = (1 - KalmanGain) * KalmanUncertainty;
-  Kalman1DOutput[0] = KalmanState;
-  Kalman1DOutput[1] = KalmanUncertainty;
-}
 
 void gyro_signals(void) {
   // switch on low pass filter
@@ -70,8 +55,8 @@ void gyro_signals(void) {
   AccZ = (float)AccZLSB / 4096 + 0.01;
 
   // epic math shinenigans
-  AngleRoll = atan(AccY / sqrt(AccX * AccX + AccZ * AccZ)) * 1 / (PI / 180);
-  AnglePitch = -atan(AccX / sqrt(AccY * AccY + AccZ * AccZ)) * 1 / (PI / 180);
+  AngleRollAcc = atan(AccY / sqrt(AccX * AccX + AccZ * AccZ)) * 1 / (PI / 180);
+  AnglePitchAcc = -atan(AccX / sqrt(AccY * AccY + AccZ * AccZ)) * 1 / (PI / 180);
 
   // access registers storing gyro values
   Wire.beginTransmission(0x68);
@@ -131,34 +116,34 @@ void loop() {
   RatePitch -= RateCalibrationPitch;
   RateYaw -= RateCalibrationYaw;
 
-  // kalman for roll
-  kalman_1d(KalmanAngleRoll, KalmanUncertaintyAngleRoll, RateRoll, AngleRoll);
-  KalmanAngleRoll = Kalman1DOutput[0];
-  KalmanUncertaintyAngleRoll = Kalman1DOutput[1];
-  // for pitch
-  kalman_1d(KalmanAnglePitch, KalmanUncertaintyAnglePitch, RatePitch, AnglePitch);
-  KalmanAnglePitch = Kalman1DOutput[0];
-  KalmanUncertaintyAnglePitch = Kalman1DOutput[1];
+  // get angle from gyro!!
+  RollAngleGyro = PrevAngleRoll + RateRoll * 0.004;
+  PitchAngleGyro = PrevAnglePitch + RatePitch * 0.004;
+
+  // epic complementary filter!!!
+  AngleRoll = 0.9934 * RollAngleGyro + 0.0066 * AngleRollAcc;
+  AnglePitch = 0.9934 * PitchAngleGyro + 0.0066 * AnglePitchAcc;
+
+  // set prev variables for next iteration
+  PrevAngleRoll = AngleRoll;
+  PrevAnglePitch = AnglePitch;
 
   // print values
-  Serial.print("rateRoll:");
-  Serial.print(RateRoll);
-  Serial.print(" ratePitch:");
-  Serial.print(RatePitch);
-  Serial.print("accX:");
-  Serial.print(AccX);
-  Serial.print(" accY:");
-  Serial.print(AccY);
-  Serial.print(" accZ:");
+  Serial.print("ratepitch:");
+  Serial.print(RatePitch * 0.004);
+  Serial.print(" angleRollGyro:");
+  Serial.print(RollAngleGyro);
+  Serial.print(" anglePitchGyro:");
+  Serial.print(PitchAngleGyro);
   Serial.print(AccZ);
-  Serial.print(" angleRoll:");
+  Serial.print(" angleRollAcc:");
+  Serial.print(AngleRollAcc);
+  Serial.print(" anglePitchAcc:");
+  Serial.print(AnglePitchAcc);
+  Serial.print(" AngleRoll:");
   Serial.print(AngleRoll);
-  Serial.print(" anglePitch:");
-  Serial.print(AnglePitch);
-  Serial.print("kalmaRoll:");
-  Serial.print(KalmanAngleRoll);
-  Serial.print(" kalmaPitch:");
-  Serial.println(KalmanAnglePitch);
+  Serial.print(" AnglePitch:");
+  Serial.println(AnglePitch);
 
   while (micros() - LoopTimer < 4000);
   LoopTimer = micros();
