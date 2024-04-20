@@ -2,6 +2,10 @@
 
 // dude i do not understand how the kalman filter works 💀
 
+// DEBUGGIN SHI
+float prevGyroAnglePitch;
+float gyroAnglePitch;
+
 float LoopTimer;
 
 // rate variables
@@ -84,10 +88,10 @@ void gyro_signals(void) {
   int16_t GyroY = Wire.read() << 8 | Wire.read();
   int16_t GyroZ = Wire.read() << 8 | Wire.read();
 
-  // get in degrees per seconds
-  RateRoll = (float)GyroX / 65.5;
-  RatePitch = (float)GyroY / 65.5;
-  RateYaw = (float)GyroZ / 65.5;
+  // get in degrees per second
+  RateRoll = (float)GyroX * 2 / 65.5; // i have no idea why the rates are half but if it works it works
+  RatePitch = (float)GyroY * 2 / 65.5;
+  RateYaw = (float)GyroZ * 2/ 65.5;
 
   LoopTimer = micros();
 }
@@ -121,6 +125,8 @@ void setup() {
   RateCalibrationRoll /= 2000;
   RateCalibrationPitch /= 2000;
   RateCalibrationYaw /= 2000;
+
+  prevGyroAnglePitch = AnglePitch;
 }
 
 void loop() {
@@ -130,6 +136,10 @@ void loop() {
   RateRoll -= RateCalibrationRoll;
   RatePitch -= RateCalibrationPitch;
   RateYaw -= RateCalibrationYaw;
+
+  // get gyro angle
+  gyroAnglePitch = prevGyroAnglePitch + RatePitch * 0.004;
+  prevGyroAnglePitch = gyroAnglePitch;
 
   // kalman for roll
   kalman_1d(KalmanAngleRoll, KalmanUncertaintyAngleRoll, RateRoll, AngleRoll);
@@ -141,8 +151,10 @@ void loop() {
   KalmanUncertaintyAnglePitch = Kalman1DOutput[1];
 
   // print values
-  Serial.print("kalmanRoll:");
-  Serial.print(KalmanAngleRoll);
+  Serial.print("accelAngle:");
+  Serial.print(AnglePitch);
+  Serial.print(" gyroAngle:");
+  Serial.print(gyroAnglePitch);
   Serial.print(" kalmanPitch:");
   Serial.println(KalmanAnglePitch);
 
