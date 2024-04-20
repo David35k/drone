@@ -16,8 +16,8 @@ float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
 int RateCalibrationNumber;
 
 // kalman filter shinenigans
-float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 1;
-float KalmanAnglePitch = 0, KalmanUncertaintyAnglePitch = 1;
+float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 2*2;
+float KalmanAnglePitch = 0, KalmanUncertaintyAnglePitch = 2*2;
 
 // output of filter {angle prediction, uncertainty of the prediction}
 // 1D means 1 dimensional
@@ -84,7 +84,7 @@ void gyro_signals(void) {
   int16_t GyroY = Wire.read() << 8 | Wire.read();
   int16_t GyroZ = Wire.read() << 8 | Wire.read();
 
-  // get in degrees per second
+  // get in degrees per seconds
   RateRoll = (float)GyroX / 65.5;
   RatePitch = (float)GyroY / 65.5;
   RateYaw = (float)GyroZ / 65.5;
@@ -141,23 +141,9 @@ void loop() {
   KalmanUncertaintyAnglePitch = Kalman1DOutput[1];
 
   // print values
-  Serial.print("rateRoll:");
-  Serial.print(RateRoll);
-  Serial.print(" ratePitch:");
-  Serial.print(RatePitch);
-  Serial.print("accX:");
-  Serial.print(AccX);
-  Serial.print(" accY:");
-  Serial.print(AccY);
-  Serial.print(" accZ:");
-  Serial.print(AccZ);
-  Serial.print(" angleRoll:");
-  Serial.print(AngleRoll);
-  Serial.print(" anglePitch:");
-  Serial.print(AnglePitch);
-  Serial.print("kalmaRoll:");
+  Serial.print("kalmanRoll:");
   Serial.print(KalmanAngleRoll);
-  Serial.print(" kalmaPitch:");
+  Serial.print(" kalmanPitch:");
   Serial.println(KalmanAnglePitch);
 
   while (micros() - LoopTimer < 4000);
