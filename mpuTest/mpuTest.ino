@@ -70,9 +70,9 @@ void gyro_signals(void) {
   int16_t GyroZ = Wire.read() << 8 | Wire.read();
 
   // get in degrees per second
-  RateRoll = (float)GyroX / 65.5;
-  RatePitch = (float)GyroY / 65.5;
-  RateYaw = (float)GyroZ / 65.5;
+  RateRoll = (float)GyroX / 6.55;
+  RatePitch = (float)GyroY / 6.55;
+  RateYaw = (float)GyroZ / 6.55;
 
   LoopTimer = micros();
 }
