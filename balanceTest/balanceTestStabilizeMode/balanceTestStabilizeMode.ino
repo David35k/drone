@@ -279,7 +279,7 @@ void loop() {
   Serial.print(" ");
   Serial.print(KalmanAnglePitch);
   Serial.print(" ");
-  Serial.println(DesiredAnglePitch);
+  Serial.println(LoopTimer);
   // Serial.print(ReceiverValues[2]);
   // Serial.print(" ");
   // Serial.print(ReceiverValues[1]);

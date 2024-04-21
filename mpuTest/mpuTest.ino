@@ -157,6 +157,8 @@ void loop() {
   Serial.print(gyroAnglePitch);
   Serial.print(" kalmanPitch:");
   Serial.println(KalmanAnglePitch);
+  Serial.print(" looptime:");
+  Serial.println(LoopTimer);
 
   while (micros() - LoopTimer < 4000);
   LoopTimer = micros();
