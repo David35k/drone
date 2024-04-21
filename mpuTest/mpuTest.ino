@@ -92,8 +92,6 @@ void gyro_signals(void) {
   RateRoll = (float)GyroX * 2 / 65.5; // i have no idea why the rates are half but if it works it works
   RatePitch = (float)GyroY * 2 / 65.5;
   RateYaw = (float)GyroZ * 2/ 65.5;
-
-  LoopTimer = micros();
 }
 
 void setup() {
@@ -127,6 +125,8 @@ void setup() {
   RateCalibrationYaw /= 2000;
 
   prevGyroAnglePitch = AnglePitch;
+
+  LoopTimer = micros();
 }
 
 void loop() {
