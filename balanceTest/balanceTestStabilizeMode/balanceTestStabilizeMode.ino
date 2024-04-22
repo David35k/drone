@@ -66,6 +66,13 @@ float PAnglePitch = 0.1;
 float IAnglePitch = 0;
 float DAnglePitch = 0;
 
+// function definitions
+inline void kalman_1d(float, float, float, float) __attribute__((always_inline));
+inline void update_receiver_values() __attribute__((always_inline));
+inline void gyro_signals() __attribute__((always_inline));
+inline void pid_equation(float, float, float, float, float, float) __attribute__((always_inline));
+inline void reset_pid() __attribute__((always_inline));
+
 // wtf is going on bro 😭
 void kalman_1d(float KalmanState, float KalmanUncertainty, float KalmanInput, float KalmanMeasurement) {
   KalmanState = KalmanState + 0.004 * KalmanInput;
@@ -85,7 +92,7 @@ void update_receiver_values() {
   ReceiverValues[3] = Pulses4;
 }
 
-void gyro_signals(void) {
+void gyro_signals() {
   // switch on low pass filter
   Wire.beginTransmission(0x68);
   Wire.write(0x1A);
@@ -159,7 +166,7 @@ void pid_equation(float Error, float P, float I, float D, float PrevError, float
   PIDReturn[2] = Iterm;
 }
 
-void reset_pid(void) {
+void reset_pid() {
   PrevErrorRatePitch = 0;
   PrevItermRatePitch = 0;
 
@@ -223,11 +230,13 @@ void setup() {
   
   delay(250); // cheeky delay lol
 
+  // ONLY WHILE TESTING MAKE SURE THIS IS ENABLES WHEN USING PROPS
+
   // avoid uncontrolled motor start
-  while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
-    update_receiver_values();
-    delay(4);
-  }
+  // while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
+  //   update_receiver_values();
+  //   delay(4);
+  // }
 
   // finished setup hooray - should be LED to indicate this lol
 
@@ -300,7 +309,7 @@ void loop() {
 
   // debugging shi
   Serial.println(KalmanAnglePitch);
-  
+
   // finish 250Hz control loop
   while(micros() - LoopTimer < 4000);
   LoopTimer = micros();
