@@ -5,7 +5,7 @@
 
 // motor pins
 // right front = 1, left rear = 2, left front = 3, right rear = 4 <- not pin numbers, just motor number
-int MotorPins[4] = {4, 0, 0, 32};
+int MotorPins[4] = { 4, 0, 0, 32 };
 
 // calibration variables
 float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
@@ -48,8 +48,8 @@ float IRatePitch = 3.5;
 float DRatePitch = 0.01;
 
 // kalman filter shinenigans
-float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 2*2;
-float KalmanAnglePitch = 0, KalmanUncertaintyAnglePitch = 2*2;
+float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 2 * 2;
+float KalmanAnglePitch = 0, KalmanUncertaintyAnglePitch = 2 * 2;
 
 // output of filter {angle prediction, uncertainty of the prediction}
 // 1D means 1 dimensional
@@ -143,7 +143,7 @@ void gyro_signals() {
   int16_t GyroZ = Wire.read() << 8 | Wire.read();
 
   // get in degrees per second
-  RateRoll = (float)GyroX / 65.5; // i have no idea why the rates are half but if it works it works
+  RateRoll = (float)GyroX / 65.5;  // i have no idea why the rates are half but if it works it works
   RatePitch = (float)GyroY / 65.5;
   RateYaw = (float)GyroZ / 65.5;
 }
@@ -220,15 +220,15 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ReceiverPin4), PulseTimer4, CHANGE);
 
   // set up comminication with ESCs
-  pinMode(MotorPins[0], OUTPUT); // MOTOR NUMBER 1
-  ledcSetup(0, 250, 12);     // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  pinMode(MotorPins[0], OUTPUT);   // MOTOR NUMBER 1
+  ledcSetup(0, 250, 12);           // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
   ledcAttachPin(MotorPins[0], 0);  // assign channel 0 to esc pin
 
-  pinMode(MotorPins[3], OUTPUT); // MOTOR NUMBER 4
-  ledcSetup(3, 250, 12);     // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  pinMode(MotorPins[3], OUTPUT);   // MOTOR NUMBER 4
+  ledcSetup(3, 250, 12);           // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
   ledcAttachPin(MotorPins[3], 0);  // assign channel 0 to esc pin
-  
-  delay(250); // cheeky delay lol
+
+  delay(250);  // cheeky delay lol
 
   // ONLY WHILE TESTING MAKE SURE THIS IS ENABLES WHEN USING PROPS
 
@@ -261,7 +261,7 @@ void loop() {
 
   // calculate desired angles
   // angle range: -50 to 50 deg
-  DesiredAnglePitch = 0.1*(ReceiverValues[1] - 1500);
+  DesiredAnglePitch = 0.1 * (ReceiverValues[1] - 1500);
 
   // get throttle input
   InputThrottle = ReceiverValues[2];
@@ -285,19 +285,19 @@ void loop() {
   PrevItermRatePitch = PIDReturn[2];
 
   // limit throttle output to leave room for PID corrections
-  if(InputThrottle > 1800) InputThrottle = 1800;
+  if (InputThrottle > 1800) InputThrottle = 1800;
 
   // use quadcopter dynamics equation to determine motor speeds
   MotorInput1 = 1.024 * (InputThrottle - InputPitch);
   MotorInput4 = 1.024 * (InputThrottle + InputPitch);
 
   // make sure they dont exceed 2000 microseconds
-  if(MotorInput1 > 2000) MotorInput1 = 1999;
-  if(MotorInput4 > 2000) MotorInput4 = 1999;
+  if (MotorInput1 > 2000) MotorInput1 = 1999;
+  if (MotorInput4 > 2000) MotorInput4 = 1999;
 
   // make sure you can turn the motors off lol
   int ThrottleCutoff = 1000;
-  if(ReceiverValues[2] < 1050) {
+  if (ReceiverValues[2] < 1050) {
     MotorInput1 = ThrottleCutoff;
     MotorInput4 = ThrottleCutoff;
     reset_pid();
@@ -311,7 +311,8 @@ void loop() {
   Serial.println(KalmanAnglePitch);
 
   // finish 250Hz control loop
-  while(micros() - LoopTimer < 4000);
+  while (micros() - LoopTimer < 4000)
+    ;
   LoopTimer = micros();
 }
 
