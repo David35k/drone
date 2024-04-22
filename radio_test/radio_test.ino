@@ -50,7 +50,7 @@ void setup() {
 }
 
 void loop() {
-  // get signals from receiver
+  // update signals from receiver
   update_receiver_values();
 
   if(ReceiverValues[2] > 2000) {

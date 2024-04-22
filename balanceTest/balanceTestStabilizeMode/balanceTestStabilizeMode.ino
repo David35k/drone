@@ -2,7 +2,10 @@
 // they are mounted on a seesaw-like stand
 
 #include "Wire.h"
-#include <ESP32Servo.h>
+
+// motor pins
+// right front = 1, left rear = 2, left front = 3, right rear = 4 <- not pin numbers, just motor number
+int MotorPins[4] = {4, 0, 0, 32};
 
 // calibration variables
 float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
@@ -14,9 +17,12 @@ int ReceiverPin3 = 18;
 int ReceiverPin4 = 19;
 float ReceiverValues[] = { 0, 0, 0, 0 };
 
-Servo Motor1, Motor2;
+// stuff for calculating pulse widths lol
+volatile long StartTime1 = 0, StartTime2 = 0, StartTime3 = 0, StartTime4 = 0;
+volatile long CurrentTime1 = 0, CurrentTime2 = 0, CurrentTime3 = 0, CurrentTime4 = 0;
+volatile long Pulses1 = 0, Pulses2 = 0, Pulses3 = 0, Pulses4 = 0;
 
-float MotorInput1, MotorInput2;
+float MotorInput1, MotorInput4;
 
 // define loop time
 uint32_t LoopTimer;
@@ -71,12 +77,12 @@ void kalman_1d(float KalmanState, float KalmanUncertainty, float KalmanInput, fl
   Kalman1DOutput[1] = KalmanUncertainty;
 }
 
-// reads pulse widths from receiver in microseconds (1000-2000)
-void read_receiver(void) {
-  ReceiverValues[0] = pulseIn(ReceiverPin1, HIGH);
-  ReceiverValues[1] = pulseIn(ReceiverPin2, HIGH);
-  ReceiverValues[2] = pulseIn(ReceiverPin3, HIGH);
-  ReceiverValues[3] = pulseIn(ReceiverPin4, HIGH);
+// update the measured values
+void update_receiver_values() {
+  ReceiverValues[0] = Pulses1;
+  ReceiverValues[1] = Pulses2;
+  ReceiverValues[2] = Pulses3;
+  ReceiverValues[3] = Pulses4;
 }
 
 void gyro_signals(void) {
@@ -195,22 +201,35 @@ void setup() {
   RateCalibrationYaw /= 2000;
 
   // set receiver pins to input
-  pinMode(ReceiverPin1, INPUT);
-  pinMode(ReceiverPin2, INPUT);
-  pinMode(ReceiverPin3, INPUT);
-  pinMode(ReceiverPin4, INPUT);
+  pinMode(ReceiverPin1, INPUT_PULLUP);
+  pinMode(ReceiverPin2, INPUT_PULLUP);
+  pinMode(ReceiverPin3, INPUT_PULLUP);
+  pinMode(ReceiverPin4, INPUT_PULLUP);
 
-  // attach ESCs
-  Motor1.attach(4, 1000, 2000);
-  Motor2.attach(32, 1000, 2000);
+  // attach interrupts to radio receiver pins
+  attachInterrupt(digitalPinToInterrupt(ReceiverPin1), PulseTimer1, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ReceiverPin2), PulseTimer2, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ReceiverPin3), PulseTimer3, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ReceiverPin4), PulseTimer4, CHANGE);
+
+  // set up comminication with ESCs
+  pinMode(MotorPins[0], OUTPUT); // MOTOR NUMBER 1
+  ledcSetup(0, 250, 12);     // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  ledcAttachPin(MotorPins[0], 0);  // assign channel 0 to esc pin
+
+  pinMode(MotorPins[3], OUTPUT); // MOTOR NUMBER 4
+  ledcSetup(3, 250, 12);     // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  ledcAttachPin(MotorPins[3], 0);  // assign channel 0 to esc pin
+  
+  delay(250); // cheeky delay lol
 
   // avoid uncontrolled motor start
   while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
-    read_receiver();
+    update_receiver_values();
     delay(4);
   }
 
-  // finished setup hooray
+  // finished setup hooray - should be LED to indicate this lol
 
   LoopTimer = micros();
 }
@@ -223,8 +242,8 @@ void loop() {
   RatePitch -= RateCalibrationPitch;
   RateYaw -= RateCalibrationYaw;
 
-  // get receiver readings
-  read_receiver();
+  // update signals from receiver
+  update_receiver_values();
 
   //kalman for pitch
   kalman_1d(KalmanAnglePitch, KalmanUncertaintyAnglePitch, RatePitch, AnglePitch);
@@ -260,26 +279,29 @@ void loop() {
   if(InputThrottle > 1800) InputThrottle = 1800;
 
   // use quadcopter dynamics equation to determine motor speeds
-  MotorInput1 = InputThrottle - InputPitch;
-  MotorInput2 = InputThrottle + InputPitch;
+  MotorInput1 = 1.024 * (InputThrottle - InputPitch);
+  MotorInput4 = 1.024 * (InputThrottle + InputPitch);
 
   // make sure they dont exceed 2000 microseconds
   if(MotorInput1 > 2000) MotorInput1 = 1999;
-  if(MotorInput2 > 2000) MotorInput2 = 1999;
+  if(MotorInput4 > 2000) MotorInput4 = 1999;
 
   // make sure you can turn the motors off lol
   int ThrottleCutoff = 1000;
   if(ReceiverValues[2] < 1050) {
     MotorInput1 = ThrottleCutoff;
-    MotorInput2 = ThrottleCutoff;
+    MotorInput4 = ThrottleCutoff;
     reset_pid();
   }
 
+  // send signal to motors
+  ledcWrite(0, MotorInput1);  // write to channel 0 which is MOTOR 1
+  ledcWrite(3, MotorInput4);  // write to channel 3 which is MOTOR 4
+
+  // debugging shi
   Serial.print(AnglePitch);
   Serial.print(" ");
-  Serial.print(KalmanAnglePitch);
-  Serial.print(" ");
-  Serial.println(LoopTimer);
+  Serial.println(KalmanAnglePitch);
   // Serial.print(ReceiverValues[2]);
   // Serial.print(" ");
   // Serial.print(ReceiverValues[1]);
@@ -290,13 +312,42 @@ void loop() {
   // Serial.print(" ");
   // Serial.print(MotorInput1);
   // Serial.print(" ");
-  // Serial.println(MotorInput2);
+  // Serial.println(MotorInput4);
 
-  // send signal to motors
-  Motor1.write(MotorInput1);
-  Motor2.write(MotorInput2);
+  
 
   // finish 250Hz control loop
   while(micros() - LoopTimer < 4000);
   LoopTimer = micros();
+}
+
+// silly loop timer functions, if it works it works type shi
+
+void PulseTimer1() {
+  CurrentTime1 = micros();
+  if (CurrentTime1 > StartTime1) {
+    Pulses1 = CurrentTime1 - StartTime1;
+    StartTime1 = CurrentTime1;
+  }
+}
+void PulseTimer2() {
+  CurrentTime2 = micros();
+  if (CurrentTime2 > StartTime2) {
+    Pulses2 = CurrentTime2 - StartTime2;
+    StartTime2 = CurrentTime2;
+  }
+}
+void PulseTimer3() {
+  CurrentTime3 = micros();
+  if (CurrentTime3 > StartTime3) {
+    Pulses3 = CurrentTime3 - StartTime3;
+    StartTime3 = CurrentTime3;
+  }
+}
+void PulseTimer4() {
+  CurrentTime4 = micros();
+  if (CurrentTime4 > StartTime4) {
+    Pulses4 = CurrentTime4 - StartTime4;
+    StartTime4 = CurrentTime4;
+  }
 }
