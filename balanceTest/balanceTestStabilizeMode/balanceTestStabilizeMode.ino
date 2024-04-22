@@ -299,23 +299,8 @@ void loop() {
   ledcWrite(3, MotorInput4);  // write to channel 3 which is MOTOR 4
 
   // debugging shi
-  Serial.print(AnglePitch);
-  Serial.print(" ");
   Serial.println(KalmanAnglePitch);
-  // Serial.print(ReceiverValues[2]);
-  // Serial.print(" ");
-  // Serial.print(ReceiverValues[1]);
-  // Serial.print(" ");
-  // Serial.print(InputThrottle);
-  // Serial.print(" ");
-  // Serial.print(InputPitch);
-  // Serial.print(" ");
-  // Serial.print(MotorInput1);
-  // Serial.print(" ");
-  // Serial.println(MotorInput4);
-
   
-
   // finish 250Hz control loop
   while(micros() - LoopTimer < 4000);
   LoopTimer = micros();
