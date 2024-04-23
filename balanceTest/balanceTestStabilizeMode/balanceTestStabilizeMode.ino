@@ -178,7 +178,7 @@ void setup() {
 
   // should have some LED to indicate status
 
-  Serial.begin(9600);
+  Serial.begin(57600);
 
   // set clock speed of I2C to 400kHz
   Wire.setClock(400000);
@@ -230,20 +230,18 @@ void setup() {
 
   delay(250);  // cheeky delay lol
 
-  // ONLY WHILE TESTING MAKE SURE THIS IS ENABLES WHEN USING PROPS
-
   // avoid uncontrolled motor start
-  // while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
-  //   update_receiver_values();
-  //   delay(4);
-  // }
+  while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
+    update_receiver_values();
+    delay(4);
+  }
 
   // finished setup hooray - should be LED to indicate this lol
-
-  LoopTimer = micros();
 }
 
 void loop() {
+  LoopTimer = micros();
+
   gyro_signals();
 
   // use calibration values to correct measurements
@@ -308,12 +306,13 @@ void loop() {
   ledcWrite(3, MotorInput4);  // write to channel 3 which is MOTOR 4
 
   // debugging shi
-  Serial.println(KalmanAnglePitch);
+  Serial.printf("motor 1: %f motor 4: %f angle: %f", MotorInput1, MotorInput4, KalmanAnglePitch);
+  Serial.println("");
 
   // finish 250Hz control loop
-  while (micros() - LoopTimer < 4000)
-    ;
-  LoopTimer = micros();
+  while (micros() - LoopTimer < 4000) {
+    asm("");
+  }
 }
 
 // silly loop timer functions, if it works it works type shi

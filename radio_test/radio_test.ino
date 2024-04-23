@@ -15,6 +15,8 @@ volatile long Pulses1 = 0, Pulses2 = 0, Pulses3 = 0, Pulses4 = 0;
 
 float InputThrottle;
 
+uint32_t timer;
+
 void update_receiver_values() {
   ReceiverValues[0] = Pulses1;
   ReceiverValues[1] = Pulses2;
@@ -50,6 +52,9 @@ void setup() {
 }
 
 void loop() {
+
+  timer = millis();
+
   // update signals from receiver
   update_receiver_values();
 
@@ -61,15 +66,15 @@ void loop() {
 
   ledcWrite(0, InputThrottle * 1.024);  // write to channel 0
 
-  Serial.print(ReceiverValues[0]);
-  Serial.print(" ");
-  Serial.print(ReceiverValues[1]);
-  Serial.print(" ");
-  Serial.print(ReceiverValues[2]);
-  Serial.print(" ");
-  Serial.print(ReceiverValues[3]);
-  Serial.print(" ");
-  Serial.println(InputThrottle);
+  // Serial.print(ReceiverValues[0]);
+  // Serial.print(" ");
+  // Serial.print(ReceiverValues[1]);
+  // Serial.print(" ");
+  // Serial.print(ReceiverValues[2]);
+  // Serial.print(" ");
+  // Serial.print(ReceiverValues[3]);
+  // Serial.print(" ");
+  Serial.println(millis() - timer);
 }
 
 void PulseTimer1() {

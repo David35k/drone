@@ -89,9 +89,9 @@ void gyro_signals(void) {
   int16_t GyroZ = Wire.read() << 8 | Wire.read();
 
   // get in degrees per second
-  RateRoll = (float)GyroX * 2 / 65.5; // i have no idea why the rates are half but if it works it works
-  RatePitch = (float)GyroY * 2 / 65.5;
-  RateYaw = (float)GyroZ * 2/ 65.5;
+  RateRoll = (float)GyroX / 65.5;
+  RatePitch = (float)GyroY / 65.5;
+  RateYaw = (float)GyroZ / 65.5;
 }
 
 void setup() {
@@ -125,11 +125,12 @@ void setup() {
   RateCalibrationYaw /= 2000;
 
   prevGyroAnglePitch = AnglePitch;
-
-  LoopTimer = micros();
 }
 
 void loop() {
+
+  LoopTimer = micros();
+
   gyro_signals();
 
   // use calibration values to correct measurements
@@ -151,15 +152,9 @@ void loop() {
   KalmanUncertaintyAnglePitch = Kalman1DOutput[1];
 
   // print values
-  Serial.print("accelAngle:");
-  Serial.print(AnglePitch);
-  Serial.print(" gyroAngle:");
-  Serial.print(gyroAnglePitch);
-  Serial.print(" kalmanPitch:");
   Serial.println(KalmanAnglePitch);
-  Serial.print(" looptime:");
-  Serial.println(LoopTimer);
 
-  while (micros() - LoopTimer < 4000);
-  LoopTimer = micros();
+  while (micros() - LoopTimer < 4000) {
+    asm("");
+  }
 }
