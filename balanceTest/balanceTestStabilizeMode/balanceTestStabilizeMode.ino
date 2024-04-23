@@ -62,7 +62,7 @@ float PrevErrorAnglePitch;
 float PrevItermAnglePitch;
 
 // PID parameters
-float PAnglePitch = 0.1;
+float PAnglePitch = 2;
 float IAnglePitch = 0;
 float DAnglePitch = 0;
 
@@ -86,10 +86,19 @@ void kalman_1d(float KalmanState, float KalmanUncertainty, float KalmanInput, fl
 
 // update the measured values
 void update_receiver_values() {
-  ReceiverValues[0] = Pulses1;
-  ReceiverValues[1] = Pulses2;
-  ReceiverValues[2] = Pulses3;
-  ReceiverValues[3] = Pulses4;
+  // for some reason constrain didnt work
+  if (Pulses1 <= 2000 && Pulses1 >= 1000) {
+    ReceiverValues[0] = Pulses1;
+  }
+  if (Pulses2 <= 2000 && Pulses2 >= 1000) {
+    ReceiverValues[1] = Pulses2;
+  }
+  if (Pulses3 <= 2000 && Pulses3 >= 1000) {
+    ReceiverValues[2] = Pulses3;
+  }
+  if (Pulses4 <= 2000 && Pulses4 >= 1000) {
+    ReceiverValues[3] = Pulses4;
+  }
 }
 
 void gyro_signals() {
@@ -230,7 +239,7 @@ void setup() {
 
   delay(250);  // cheeky delay lol
 
-  // avoid uncontrolled motor start
+  // avoid uncontrolled motor start - make sure this is not commented when testing with props
   while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
     update_receiver_values();
     delay(4);
@@ -306,7 +315,7 @@ void loop() {
   ledcWrite(3, MotorInput4);  // write to channel 3 which is MOTOR 4
 
   // debugging shi
-  Serial.printf("motor 1: %f motor 4: %f angle: %f", MotorInput1, MotorInput4, KalmanAnglePitch);
+  Serial.printf("angle: %f ", KalmanAnglePitch);
   Serial.println("");
 
   // finish 250Hz control loop
