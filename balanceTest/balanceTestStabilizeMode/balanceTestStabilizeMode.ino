@@ -43,7 +43,7 @@ float PrevItermRatePitch;
 float PIDReturn[] = { 0, 0, 0 };
 
 // PID parameters
-float PRatePitch = 0.6;
+float PRatePitch = 1;
 float IRatePitch = 3.5;
 float DRatePitch = 0.01;
 
@@ -62,9 +62,9 @@ float PrevErrorAnglePitch;
 float PrevItermAnglePitch;
 
 // PID parameters
-float PAnglePitch = 2;
-float IAnglePitch = 0;
-float DAnglePitch = 0;
+float PAnglePitch = 1;
+float IAnglePitch = 0.2;
+float DAnglePitch = 0.3;
 
 // function definitions
 inline void kalman_1d(float, float, float, float) __attribute__((always_inline));
@@ -187,7 +187,7 @@ void setup() {
 
   // should have some LED to indicate status
 
-  Serial.begin(57600);
+  Serial.begin(115200);
 
   // set clock speed of I2C to 400kHz
   Wire.setClock(400000);
@@ -235,7 +235,7 @@ void setup() {
 
   pinMode(MotorPins[3], OUTPUT);   // MOTOR NUMBER 4
   ledcSetup(3, 250, 12);           // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
-  ledcAttachPin(MotorPins[3], 0);  // assign channel 0 to esc pin
+  ledcAttachPin(MotorPins[3], 3);  // assign channel 3 to esc pin
 
   delay(250);  // cheeky delay lol
 
@@ -244,6 +244,8 @@ void setup() {
     update_receiver_values();
     delay(4);
   }
+
+  Serial.println("done setup yay");
 
   // finished setup hooray - should be LED to indicate this lol
 }
@@ -313,9 +315,14 @@ void loop() {
   // send signal to motors
   ledcWrite(0, MotorInput1);  // write to channel 0 which is MOTOR 1
   ledcWrite(3, MotorInput4);  // write to channel 3 which is MOTOR 4
+  
+  //for adjusting escs
+  // ledcWrite(0, InputThrottle);
+  // ledcWrite(3, InputThrottle);
 
   // debugging shi
-  Serial.printf("angle: %f ", KalmanAnglePitch);
+  Serial.printf("angle: %f", KalmanAnglePitch);
+  // Serial.printf("angle: %f, motorinput1: %f, desired rate: %f, rate: %f", KalmanAnglePitch, MotorInput1, DesiredRatePitch, RatePitch);
   Serial.println("");
 
   // finish 250Hz control loop
