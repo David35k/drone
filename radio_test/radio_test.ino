@@ -1,7 +1,9 @@
 
 // trying to do it without using servo library
 
-int escPin = 32;
+// motor pins
+// right front = 1, left rear = 2, left front = 3, right rear = 4 <- not pin numbers, just motor number
+int MotorPins[4] = { 26, 27, 32, 33 };
 
 int ReceiverPin1 = 16;
 int ReceiverPin2 = 17;
@@ -15,7 +17,8 @@ volatile long Pulses1 = 0, Pulses2 = 0, Pulses3 = 0, Pulses4 = 0;
 
 float InputThrottle;
 
-uint32_t timer;
+// define loop time
+uint32_t LoopTimer;
 
 void update_receiver_values() {
   ReceiverValues[0] = Pulses1;
@@ -25,7 +28,7 @@ void update_receiver_values() {
 }
 
 void setup() {
-  Serial.begin(57600);
+  Serial.begin(115200);
 
   // set receiver pins to input
   pinMode(ReceiverPin1, INPUT_PULLUP);
@@ -38,43 +41,66 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ReceiverPin3), PulseTimer3, CHANGE);
   attachInterrupt(digitalPinToInterrupt(ReceiverPin4), PulseTimer4, CHANGE);
 
-  // set up comminication with esc
-  pinMode(escPin, OUTPUT);
-  ledcSetup(0, 250, 12);     // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
-  ledcAttachPin(escPin, 0);  // assign channel 0 to esc pin
+  // set up comminication with ESCs
+  ledcSetup(0, 250, 12);           // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  ledcAttachPin(MotorPins[0], 0);  // assign channel 0 to esc pin
+
+  ledcSetup(1, 250, 12);           // channel 1, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  ledcAttachPin(MotorPins[1], 1);  // assign channel 1 to esc pin
+
+  ledcSetup(2, 250, 12);           // channel 2, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  ledcAttachPin(MotorPins[2], 2);  // assign channel 2 to esc pin
+
+  ledcSetup(3, 250, 12);           // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  ledcAttachPin(MotorPins[3], 3);  // assign channel 3 to esc pin
+
   delay(250);
 
   // avoid uncontrolled motor start
-  while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
-    update_receiver_values();
-    delay(4);
-  }
+  // while (ReceiverValues[2] < 1020 || ReceiverValues[2] > 1050) {
+  //   update_receiver_values();
+  //   delay(4);
+  // }
+
+  delay(2500);
+  Serial.println("les go");
 }
 
 void loop() {
+  LoopTimer = micros();
 
-  timer = millis();
 
-  // update signals from receiver
+  // // update signals from receiver
   update_receiver_values();
 
-  if(ReceiverValues[2] > 2000) {
-    ReceiverValues[2] = 1999;
+  // InputThrottle = ReceiverValues[2];
+
+  // if(InputThrottle > 2000) {
+  //   InputThrottle = 1999;
+  // }
+
+  // ledcWrite(0, InputThrottle);  // write to channel 0
+
+  // // Serial.print(ReceiverValues[0]);
+  // // Serial.print(" ");
+  // // Serial.print(ReceiverValues[1]);
+  // // Serial.print(" ");
+  // Serial.println(InputThrottle);
+  // // Serial.print(" ");
+  // // Serial.println(ReceiverValues[3]);
+  // // Serial.println(millis() - timer);
+
+  //for calibrating escs
+  ledcWrite(0, ReceiverValues[2]);
+  ledcWrite(1, ReceiverValues[2]);
+  ledcWrite(2, ReceiverValues[2]);
+  ledcWrite(3, ReceiverValues[2]);
+
+
+  // finish 250Hz control loop
+  while (micros() - LoopTimer < 4000) {
+    asm("");
   }
-
-  InputThrottle = ReceiverValues[2];
-
-  ledcWrite(0, InputThrottle * 1.024);  // write to channel 0
-
-  // Serial.print(ReceiverValues[0]);
-  // Serial.print(" ");
-  // Serial.print(ReceiverValues[1]);
-  // Serial.print(" ");
-  // Serial.print(ReceiverValues[2]);
-  // Serial.print(" ");
-  // Serial.print(ReceiverValues[3]);
-  // Serial.print(" ");
-  Serial.println(millis() - timer);
 }
 
 void PulseTimer1() {

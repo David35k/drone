@@ -5,7 +5,7 @@
 
 // motor pins
 // right front = 1, left rear = 2, left front = 3, right rear = 4 <- not pin numbers, just motor number
-int MotorPins[4] = { 4, 0, 0, 32 };
+int MotorPins[4] = { 26, 27, 32, 33 };
 
 // calibration variables
 float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;

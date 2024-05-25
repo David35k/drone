@@ -1,11 +1,8 @@
-// this simple balance test only uses two motors and the pitch angle
-// they are mounted on a seesaw-like stand
-
 #include "Wire.h"
 
 // motor pins
 // right front = 1, left rear = 2, left front = 3, right rear = 4 <- not pin numbers, just motor number
-int MotorPins[4] = { 4, 0, 0, 32 };
+int MotorPins[4] = { 26, 27, 32, 33 };
 
 // calibration variables
 float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
@@ -44,8 +41,11 @@ float PIDReturn[] = { 0, 0, 0 };
 
 // PID parameters - RATES
 float PRatePitch, PRateRoll = 1;
+float PRateYaw = 2;
 float IRatePitch, IRateRoll = 3.5;
+float IRateYaw = 12;
 float DRatePitch, DRateRoll = 0.01;
+float DRateYaw = 0;
 
 // kalman filter shinenigans
 float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 2 * 2;
@@ -58,11 +58,11 @@ float Kalman1DOutput[] = { 0, 0 };
 // PID varaibles - ANGLES
 float DesiredAnglePitch, DesiredAngleRoll;
 float ErrorAnglePitch, ErrorAngleRoll;
-float PrevErrorAnglePitch, PrevErrorAn;
-float PrevItermAnglePitch;
+float PrevErrorAnglePitch, PrevErrorAngleRoll;
+float PrevItermAnglePitch, PrevItermAngleRoll;
 
 // PID - ANGLES
-float PAnglePitch, PAnglrRoll = 1;
+float PAnglePitch, PAngleRoll = 1;
 float IAnglePitch, IAngleRoll = 0.2;
 float DAnglePitch, DAngleRoll = 0.3;
 
@@ -229,22 +229,18 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ReceiverPin4), PulseTimer4, CHANGE);
 
   // set up comminication with ESCs
-  pinMode(MotorPins[0], OUTPUT);   // MOTOR NUMBER 1
   ledcSetup(0, 250, 12);           // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
   ledcAttachPin(MotorPins[0], 0);  // assign channel 0 to esc pin
 
-  pinMode(MotorPins[1], OUTPUT);   // MOTOR NUMBER 2
   ledcSetup(1, 250, 12);           // channel 1, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
-  ledcAttachPin(MotorPins[0], 1);  // assign channel 1 to esc pin
+  ledcAttachPin(MotorPins[1], 1);  // assign channel 1 to esc pin
 
-  pinMode(MotorPins[2], OUTPUT);   // MOTOR NUMBER 3
   ledcSetup(2, 250, 12);           // channel 2, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
-  ledcAttachPin(MotorPins[0], 2);  // assign channel 2 to esc pin
+  ledcAttachPin(MotorPins[2], 2);  // assign channel 2 to esc pin
 
-  pinMode(MotorPins[3], OUTPUT);   // MOTOR NUMBER 4
   ledcSetup(3, 250, 12);           // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
   ledcAttachPin(MotorPins[3], 3);  // assign channel 3 to esc pin
-
+  
   delay(250);  // cheeky delay lol
 
   // avoid uncontrolled motor start - make sure this is not commented when testing with props
@@ -283,11 +279,11 @@ void loop() {
 
   // calculate desired angles
   // angle range: -50 to 50 deg
-  DesiredAnglePitch = 0.1 * (ReceiverValues[1] - 1500);
-  DesiredAngleRoll = 0.1 * (ReceiverValues[0] - 1500); // <<< CHECK THIS
+  DesiredAnglePitch = -0.1 * (ReceiverValues[1] - 1500) + 7; // some offset lawl
+  DesiredAngleRoll = -0.1 * (ReceiverValues[0] - 1500); // <<< CHECK THIS
   
   // yaw will still use rates!
-  DesiredRateYaw = 0.15 * (ReceiverValues[3] - 1500);
+  DesiredRateYaw = -0.15 * (ReceiverValues[3] - 1500);
   
   // get throttle input
   InputThrottle = ReceiverValues[2];
@@ -331,11 +327,11 @@ void loop() {
   // limit throttle output to leave room for PID corrections
   if (InputThrottle > 1800) InputThrottle = 1800;
 
-  // use quadcopter dynamics equation to determine motor speeds
-  MotorInput1 = 1.024 * (InputThrottle - InputPitch - InputRoll + InputYaw); // front right
-  MotorInput2 = 1.024 * (InputThrottle + InputPitch + InputRoll + InputYaw); // back left
-  MotorInput3 = 1.024 * (InputThrottle - InputPitch + InputRoll - InputYaw); // front left
-  MotorInput4 = 1.024 * (InputThrottle + InputPitch - InputRoll - InputYaw); // back right
+  // use quadcopter dynamics equation to determine motor speeds - inverted lawl
+  MotorInput1 = 1.024 * (InputThrottle + InputPitch + InputRoll - InputYaw); // front right
+  MotorInput2 = 1.024 * (InputThrottle - InputPitch - InputRoll - InputYaw); // back left
+  MotorInput3 = 1.024 * (InputThrottle + InputPitch - InputRoll + InputYaw); // front left
+  MotorInput4 = 1.024 * (InputThrottle - InputPitch + InputRoll + InputYaw); // back right
 
   // make sure they dont exceed 2000 microseconds
   if (MotorInput1 > 2000) MotorInput1 = 1999;
@@ -359,14 +355,12 @@ void loop() {
   ledcWrite(2, MotorInput3);  // write to channel 2 which is MOTOR 3
   ledcWrite(3, MotorInput4);  // write to channel 3 which is MOTOR 4
   
-  //for adjusting escs
-  // ledcWrite(0, InputThrottle);
-  // ledcWrite(3, InputThrottle);
-
   // debugging shi
-  Serial.printf("angle: %f", KalmanAnglePitch);
-  // Serial.printf("angle: %f, motorinput1: %f, desired rate: %f, rate: %f", KalmanAnglePitch, MotorInput1, DesiredRatePitch, RatePitch);
-  Serial.println("");
+  // Serial.printf("angle pitch: %f, desired angle pitch: %f", KalmanAnglePitch , DesiredAnglePitch); // for testing pitch
+  // Serial.printf("angle roll: %f, desired angle roll: %f", KalmanAngleRoll, DesiredAngleRoll); // for testing roll
+  // Serial.printf("rate yaw: %f, desired rate yaw : %f", RateYaw, DesiredRateYaw); // for testing yaw
+  // Serial.printf("input throttle: %f, motor1: %f, motor2: %f, motor3: %f, motor4: %f", InputThrottle, MotorInput1, MotorInput2, MotorInput3, MotorInput4); // for testing yaw
+  // Serial.println("");
 
   // finish 250Hz control loop
   while (micros() - LoopTimer < 4000) {
