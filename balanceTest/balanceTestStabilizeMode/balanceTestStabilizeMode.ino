@@ -1,6 +1,8 @@
 // this simple balance test only uses two motors and the pitch angle
 // they are mounted on a seesaw-like stand
 
+//UPDATE: now im testing on the actual drone lawl
+
 #include "Wire.h"
 
 // motor pins
@@ -45,7 +47,7 @@ float PIDReturn[] = { 0, 0, 0 };
 // PID parameters
 float PRatePitch = 1;
 float IRatePitch = 3.5;
-float DRatePitch = 0.01;
+float DRatePitch = 0.005;
 
 // kalman filter shinenigans
 float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 2 * 2;
@@ -62,9 +64,9 @@ float PrevErrorAnglePitch;
 float PrevItermAnglePitch;
 
 // PID parameters
-float PAnglePitch = 1;
-float IAnglePitch = 0.2;
-float DAnglePitch = 0.3;
+float PAnglePitch = 2;
+float IAnglePitch = 0;
+float DAnglePitch = 0;
 
 // function definitions
 inline void kalman_1d(float, float, float, float) __attribute__((always_inline));
@@ -232,9 +234,11 @@ void setup() {
   pinMode(MotorPins[0], OUTPUT);   // MOTOR NUMBER 1
   ledcSetup(0, 250, 12);           // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
   ledcAttachPin(MotorPins[0], 0);  // assign channel 0 to esc pin
+  ledcAttachPin(MotorPins[2], 0);  // assign channel 0 to esc pin
 
   pinMode(MotorPins[3], OUTPUT);   // MOTOR NUMBER 4
   ledcSetup(3, 250, 12);           // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  ledcAttachPin(MotorPins[1], 3);  // assign channel 3 to esc pin
   ledcAttachPin(MotorPins[3], 3);  // assign channel 3 to esc pin
 
   delay(250);  // cheeky delay lol
@@ -270,7 +274,7 @@ void loop() {
 
   // calculate desired angles
   // angle range: -50 to 50 deg
-  DesiredAnglePitch = 0.1 * (ReceiverValues[1] - 1500);
+  DesiredAnglePitch = -0.1 * (ReceiverValues[1] - 1500);
 
   // get throttle input
   InputThrottle = ReceiverValues[2];
@@ -285,7 +289,7 @@ void loop() {
   PrevItermAnglePitch = PIDReturn[2];
 
   // calculate the errors that will be corrected by PID for RATE
-  ErrorRatePitch = DesiredRatePitch - RateRoll;
+  ErrorRatePitch = DesiredRatePitch - RatePitch;
 
   // execute PID calculations
   pid_equation(ErrorRatePitch, PRatePitch, IRatePitch, DRatePitch, PrevErrorRatePitch, PrevItermRatePitch);
@@ -297,12 +301,15 @@ void loop() {
   if (InputThrottle > 1800) InputThrottle = 1800;
 
   // use quadcopter dynamics equation to determine motor speeds
-  MotorInput1 = 1.024 * (InputThrottle - InputPitch);
-  MotorInput4 = 1.024 * (InputThrottle + InputPitch);
+  MotorInput1 = 1.024 * (InputThrottle + InputPitch);
+  MotorInput4 = 1.024 * (InputThrottle - InputPitch);
 
-  // make sure they dont exceed 2000 microseconds
+  // make sure they dont exceed 2000 and below 1000 microseconds
   if (MotorInput1 > 2000) MotorInput1 = 1999;
   if (MotorInput4 > 2000) MotorInput4 = 1999;
+  if (MotorInput1 < 1000) MotorInput1 = 1001;
+  if (MotorInput4 < 1000) MotorInput4 = 1001;
+
 
   // make sure you can turn the motors off lol
   int ThrottleCutoff = 1000;
@@ -321,9 +328,9 @@ void loop() {
   // ledcWrite(3, InputThrottle);
 
   // debugging shi
-  Serial.printf("angle: %f", KalmanAnglePitch);
-  // Serial.printf("angle: %f, motorinput1: %f, desired rate: %f, rate: %f", KalmanAnglePitch, MotorInput1, DesiredRatePitch, RatePitch);
-  Serial.println("");
+  // Serial.println("angle: %f", KalmanAnglePitch);
+  // Serial.print("angle: %f, motorinput1: %f, desired rate: %f, rate: %f", KalmanAnglePitch, MotorInput1, DesiredRatePitch, RatePitch);
+  // Serial.println("");
 
   // finish 250Hz control loop
   while (micros() - LoopTimer < 4000) {

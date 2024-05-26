@@ -40,11 +40,11 @@ float PrevItermRatePitch, PrevItermRateRoll, PrevItermRateYaw;
 float PIDReturn[] = { 0, 0, 0 };
 
 // PID parameters - RATES
-float PRatePitch, PRateRoll = 1;
+float PRatePitch = 1, PRateRoll = PRatePitch;
 float PRateYaw = 2;
-float IRatePitch, IRateRoll = 3.5;
+float IRatePitch = 3.5, IRateRoll = IRatePitch;
 float IRateYaw = 12;
-float DRatePitch, DRateRoll = 0.01;
+float DRatePitch = 0.005, DRateRoll = DRatePitch;
 float DRateYaw = 0;
 
 // kalman filter shinenigans
@@ -62,9 +62,9 @@ float PrevErrorAnglePitch, PrevErrorAngleRoll;
 float PrevItermAnglePitch, PrevItermAngleRoll;
 
 // PID - ANGLES
-float PAnglePitch, PAngleRoll = 1;
-float IAnglePitch, IAngleRoll = 0.2;
-float DAnglePitch, DAngleRoll = 0.3;
+float PAnglePitch = 2, PAngleRoll = PAnglePitch;
+float IAnglePitch = 0, IAngleRoll = IAnglePitch;
+float DAnglePitch = 0, DAngleRoll = DAnglePitch;
 
 // function definitions
 inline void kalman_1d(float, float, float, float) __attribute__((always_inline));
@@ -177,10 +177,16 @@ void pid_equation(float Error, float P, float I, float D, float PrevError, float
 
 void reset_pid() {
   PrevErrorRatePitch = 0;
+  PrevErrorRateRoll = 0;
+  PrevErrorRateYaw = 0;
   PrevItermRatePitch = 0;
+  PrevItermRateRoll = 0;
+  PrevItermRateYaw = 0;
 
   PrevErrorAnglePitch = 0;
+  PrevErrorAngleRoll = 0;
   PrevItermAnglePitch = 0;
+  PrevItermAngleRoll = 0;
 }
 
 void setup() {
@@ -333,11 +339,16 @@ void loop() {
   MotorInput3 = 1.024 * (InputThrottle + InputPitch - InputRoll + InputYaw); // front left
   MotorInput4 = 1.024 * (InputThrottle - InputPitch + InputRoll + InputYaw); // back right
 
-  // make sure they dont exceed 2000 microseconds
+  // make sure they dont exceed 2000 microseconds and they dont go below 1000 microseconds
   if (MotorInput1 > 2000) MotorInput1 = 1999;
   if (MotorInput2 > 2000) MotorInput2 = 1999;
   if (MotorInput3 > 2000) MotorInput3 = 1999;
   if (MotorInput4 > 2000) MotorInput4 = 1999;
+  
+  if (MotorInput1 < 1000) MotorInput1 = 1001;
+  if (MotorInput2 < 1000) MotorInput2 = 1001;
+  if (MotorInput3 < 1000) MotorInput3 = 1001;
+  if (MotorInput4 < 1000) MotorInput4 = 1001;
 
   // make sure you can turn the motors off lol
   int ThrottleCutoff = 1000;
@@ -359,8 +370,8 @@ void loop() {
   // Serial.printf("angle pitch: %f, desired angle pitch: %f", KalmanAnglePitch , DesiredAnglePitch); // for testing pitch
   // Serial.printf("angle roll: %f, desired angle roll: %f", KalmanAngleRoll, DesiredAngleRoll); // for testing roll
   // Serial.printf("rate yaw: %f, desired rate yaw : %f", RateYaw, DesiredRateYaw); // for testing yaw
-  // Serial.printf("input throttle: %f, motor1: %f, motor2: %f, motor3: %f, motor4: %f", InputThrottle, MotorInput1, MotorInput2, MotorInput3, MotorInput4); // for testing yaw
-  // Serial.println("");
+  Serial.printf("input throttle: %f, motor1: %f, motor2: %f, motor3: %f, motor4: %f", InputThrottle, MotorInput1, MotorInput2, MotorInput3, MotorInput4); // for testing yaw
+  Serial.println("");
 
   // finish 250Hz control loop
   while (micros() - LoopTimer < 4000) {
