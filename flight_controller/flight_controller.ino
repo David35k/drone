@@ -42,7 +42,7 @@ float PIDReturn[] = { 0, 0, 0 };
 // PID parameters - RATES
 float PRatePitch = 1, PRateRoll = PRatePitch;
 float PRateYaw = 2;
-float IRatePitch = 3.5, IRateRoll = IRatePitch;
+float IRatePitch = 3, IRateRoll = IRatePitch;
 float IRateYaw = 12;
 float DRatePitch = 0.005, DRateRoll = DRatePitch;
 float DRateYaw = 0;
