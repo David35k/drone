@@ -40,9 +40,9 @@ float PrevItermRatePitch, PrevItermRateRoll, PrevItermRateYaw;
 float PIDReturn[] = { 0, 0, 0 };
 
 // PID parameters - RATES
-float PRatePitch = 1, PRateRoll = PRatePitch;
+float PRatePitch = 1.2, PRateRoll = PRatePitch;
 float PRateYaw = 2;
-float IRatePitch = 3, IRateRoll = IRatePitch;
+float IRatePitch = 3.5, IRateRoll = IRatePitch;
 float IRateYaw = 12;
 float DRatePitch = 0.005, DRateRoll = DRatePitch;
 float DRateYaw = 0;
@@ -235,17 +235,20 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(ReceiverPin4), PulseTimer4, CHANGE);
 
   // set up comminication with ESCs
-  ledcSetup(0, 250, 12);           // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
-  ledcAttachPin(MotorPins[0], 0);  // assign channel 0 to esc pin
+  // ledcSetup(0, 250, 12);           // channel 0, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  ledcAttach(MotorPins[0], 250, 12);  // assign 
+  ledcAttach(MotorPins[1], 250, 12);  // assign 
+  ledcAttach(MotorPins[2], 250, 12);  // assign 
+  ledcAttach(MotorPins[3], 250, 12);  // assign 
 
-  ledcSetup(1, 250, 12);           // channel 1, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
-  ledcAttachPin(MotorPins[1], 1);  // assign channel 1 to esc pin
+  // ledcSetup(1, 250, 12);           // channel 1, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  // ledcAttachPin(MotorPins[1], 1);  // assign channel 1 to esc pin
 
-  ledcSetup(2, 250, 12);           // channel 2, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
-  ledcAttachPin(MotorPins[2], 2);  // assign channel 2 to esc pin
+  // ledcSetup(2, 250, 12);           // channel 2, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  // ledcAttachPin(MotorPins[2], 2);  // assign channel 2 to esc pin
 
-  ledcSetup(3, 250, 12);           // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
-  ledcAttachPin(MotorPins[3], 3);  // assign channel 3 to esc pin
+  // ledcSetup(3, 250, 12);           // channel 3, 250Hz frequency, 12bit resolution - 0 and 4095 which corresponds to 0us and 4000us
+  // ledcAttachPin(MotorPins[3], 3);  // assign channel 3 to esc pin
   
   delay(250);  // cheeky delay lol
 
@@ -361,10 +364,10 @@ void loop() {
   }
 
   // send signal to motors
-  ledcWrite(0, MotorInput1);  // write to channel 0 which is MOTOR 1
-  ledcWrite(1, MotorInput2);  // write to channel 1 which is MOTOR 2
-  ledcWrite(2, MotorInput3);  // write to channel 2 which is MOTOR 3
-  ledcWrite(3, MotorInput4);  // write to channel 3 which is MOTOR 4
+  ledcWrite(MotorPins[0], MotorInput1);  // write to channel 0 which is MOTOR 1
+  ledcWrite(MotorPins[1], MotorInput2);  // write to channel 1 which is MOTOR 2
+  ledcWrite(MotorPins[2], MotorInput3);  // write to channel 2 which is MOTOR 3
+  ledcWrite(MotorPins[3], MotorInput4);  // write to channel 3 which is MOTOR 4
   
   // debugging shi
   // Serial.printf("angle pitch: %f, desired angle pitch: %f", KalmanAnglePitch , DesiredAnglePitch); // for testing pitch
